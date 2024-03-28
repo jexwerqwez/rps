@@ -35,6 +35,7 @@ unsigned int rand_state = 0;
 
 void *manipulator_routine(void *arg);
 void create_manipulator(int x, int y, int speed, char direction, int id);
+void deactivate_manipulator(int id);
 void *visualizer_routine(void *arg);
 void *controller_routine(void *arg);
 void print_field();
@@ -86,6 +87,16 @@ void create_manipulator(int x, int y, int speed, char direction, int id) {
   pthread_create(&manip->thread_id, NULL, manipulator_routine, manip);
   if (field.count == 1) field.controlled_manip = 0;
   pthread_mutex_unlock(&lock);
+}
+
+void deactivate_manipulator(int id) {
+  for (int i = 0; i < field.count; i++) {
+    if (field.manipulators[i].id == id && field.manipulators[i].active) {
+      field.manipulators[i].active = false;
+      printf("\n\n\nМанипулятор %d удалён.\n", id);
+      break;
+    }
+  }
 }
 
 void *visualizer_routine(void *arg) {
@@ -141,7 +152,18 @@ void *controller_routine(void *arg) {
   int oldX, oldY;
   while (1) {
     input = get_input();
-    if (input == 'c' || input == 'C') {
+    if (input == 'r' || input == 'R') {
+      if (field.count > 0) {
+        printf("\nВыберите манипулятор для удаления (%d - %d): ", 0,
+             field.count - 1);
+        int num = read_number();
+        if (num >= 0 && num < field.count) {
+          deactivate_manipulator(num);
+          if (field.controlled_manip == num)
+            field.controlled_manip = (num == 0) ? 1 : num - 1;
+        }
+      }
+    } else if (input == 'c' || input == 'C') {
       printf("\nВыберите манипулятор для управления (%d - %d): ", 0,
              field.count - 1);
       int num = read_number();
