@@ -25,6 +25,7 @@ typedef struct {
   int width;
   int height;
   int count;
+  int controlled_manip;
 } Field;
 
 Field field;
@@ -38,6 +39,7 @@ void *visualizer_routine(void *arg);
 void *controller_routine(void *arg);
 void print_field();
 char get_input();
+int read_number();
 
 void *manipulator_routine(void *arg) {
   Manipulator *manip = (Manipulator *)arg;
@@ -62,14 +64,16 @@ void *manipulator_routine(void *arg) {
         if (manip->x < field.width - 1) manip->x++;
         break;
     }
-
-    if (oldX != manip->x || oldY != manip->y) {
+    Manipulator *ctrl_manip = &field.manipulators[field.controlled_manip];
+    if (oldX != ctrl_manip->x || oldY != ctrl_manip->y) {
       printf("\033[%d;0H", field.height + 2);  // Перемещаем курсор ниже поля
       printf("\033[K");                        // Очистить строку
-      printf("Текущий манипулятор: %d (%lu)\n", manip->id, (unsigned long)manip->thread_id);
-      printf("Перемещение манипулятора из (%d, %d) в (%d, %d)\n",
-             oldX, oldY, manip->x, manip->y);
-      printf("Передать управление манипулятору:");
+      printf("\033[K");
+      printf("Текущий манипулятор: %d\n", ctrl_manip->id);
+      printf("Перемещение манипулятора из (%d, %d) в (% d, % d)\n ",
+             oldX,
+             oldY, ctrl_manip->x, ctrl_manip->y);
+      printf("Передать управление манипулятору C");
     }
 
     pthread_mutex_unlock(&lock);
@@ -92,6 +96,7 @@ void create_manipulator(int x, int y, int speed, char direction, int id) {
   manip->active = true;
   manip->id = id;
   pthread_create(&manip->thread_id, NULL, manipulator_routine, manip);
+  if (field.count == 1) field.controlled_manip = 0;
   pthread_mutex_unlock(&lock);
 }
 
@@ -124,6 +129,12 @@ void print_field() {
   }
 }
 
+int read_number() {
+  char number_str[10];
+  fgets(number_str, sizeof(number_str), stdin);
+  return atoi(number_str);
+}
+
 char get_input() {
   struct termios oldt, newt;
   char ch;
@@ -140,30 +151,32 @@ void *controller_routine(void *arg) {
   char input;
   while (1) {
     input = get_input();
-    if (input == 'e' || input == 'E') {
-      pthread_mutex_lock(&lock);
+    if (input == 'c' || input == 'C') {
+      printf("\n\n\nВыберите манипулятор для управления (%d - %d): ", 0,
+             field.count - 1);
+      int num = read_number();
+      if (num >= 0 && num < field.count) field.controlled_manip = num;
+    } else if (input == 'e' || input == 'E') {
       if (field.count < MAX_MANIPULATORS) {
         int x = rand_r(&rand_state) % field.width;
         int y = rand_r(&rand_state) % field.height;
         pthread_mutex_unlock(&lock);
         create_manipulator(x, y, 1, ' ', field.count);
-      } else {
-        pthread_mutex_unlock(&lock);
       }
     } else {
-      pthread_mutex_lock(&lock);
-      int controlled_manip = field.count - 1;
-      if (input == 'w' || input == 'W') {
-        field.manipulators[controlled_manip].direction = 'W';
-      } else if (input == 's' || input == 'S') {
-        field.manipulators[controlled_manip].direction = 'S';
-      } else if (input == 'a' || input == 'A') {
-        field.manipulators[controlled_manip].direction = 'A';
-      } else if (input == 'd' || input == 'D') {
-        field.manipulators[controlled_manip].direction = 'D';
+      if (field.count > 0) {
+        Manipulator *ctrl_manip = &field.manipulators[field.controlled_manip];
+        if (input == 'w' || input == 'W')
+          ctrl_manip->direction = 'W';
+        else if (input == 's' || input == 'S')
+          ctrl_manip->direction = 'S';
+        else if (input == 'a' || input == 'A')
+          ctrl_manip->direction = 'A';
+        else if (input == 'd' || input == 'D')
+          ctrl_manip->direction = 'D';
       }
-      pthread_mutex_unlock(&lock);
-    } // через regex считать номер
+    }
+    pthread_mutex_unlock(&lock);
     usleep(100000);
   }
   return NULL;
