@@ -66,10 +66,10 @@ void *manipulator_routine(void *arg) {
     if (oldX != manip->x || oldY != manip->y) {
       printf("\033[%d;0H", field.height + 2);  // Перемещаем курсор ниже поля
       printf("\033[K");                        // Очистить строку
-printf("Манипулятор: %lu переместился из (%d, %d) => (%d, %d)\n",
-       (unsigned long)manip->thread_id, oldX, oldY, manip->x, manip->y);
-
-
+      printf("Текущий манипулятор: %d (%lu)\n", manip->id, (unsigned long)manip->thread_id);
+      printf("Перемещение манипулятора из (%d, %d) в (%d, %d)\n",
+             oldX, oldY, manip->x, manip->y);
+      printf("Передать управление манипулятору:");
     }
 
     pthread_mutex_unlock(&lock);
@@ -163,7 +163,7 @@ void *controller_routine(void *arg) {
         field.manipulators[controlled_manip].direction = 'D';
       }
       pthread_mutex_unlock(&lock);
-    }
+    } // через regex считать номер
     usleep(100000);
   }
   return NULL;
