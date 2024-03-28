@@ -152,14 +152,15 @@ void *controller_routine(void *arg) {
       }
     } else {
       pthread_mutex_lock(&lock);
+      int controlled_manip = field.count - 1;
       if (input == 'w' || input == 'W') {
-        field.manipulators[0].direction = 'W';
+        field.manipulators[controlled_manip].direction = 'W';
       } else if (input == 's' || input == 'S') {
-        field.manipulators[0].direction = 'S';
+        field.manipulators[controlled_manip].direction = 'S';
       } else if (input == 'a' || input == 'A') {
-        field.manipulators[0].direction = 'A';
+        field.manipulators[controlled_manip].direction = 'A';
       } else if (input == 'd' || input == 'D') {
-        field.manipulators[0].direction = 'D';
+        field.manipulators[controlled_manip].direction = 'D';
       }
       pthread_mutex_unlock(&lock);
     }
