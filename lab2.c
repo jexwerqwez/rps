@@ -53,28 +53,38 @@ void *manipulator_routine(void *arg) {
 
     switch (manip->direction) {
       case 'W':
-        if (manip->y > 0) manip->y--;
-        else manip->direction = 'S'; // Отскакивание от верхней границы
+        if (manip->y > 0)
+          manip->y--;
+        else
+          manip->direction = 'S';  // Отскакивание от верхней границы
         break;
       case 'S':
-        if (manip->y < field.height - 1) manip->y++;
-        else manip->direction = 'W'; // Отскакивание от нижней границы
+        if (manip->y < field.height - 1)
+          manip->y++;
+        else
+          manip->direction = 'W';  // Отскакивание от нижней границы
         break;
       case 'A':
-        if (manip->x > 0) manip->x--;
-        else manip->direction = 'D'; // Отскакивание от левой границы
+        if (manip->x > 0)
+          manip->x--;
+        else
+          manip->direction = 'D';  // Отскакивание от левой границы
         break;
       case 'D':
-        if (manip->x < field.width - 1) manip->x++;
-        else manip->direction = 'A'; // Отскакивание от правой границы
+        if (manip->x < field.width - 1)
+          manip->x++;
+        else
+          manip->direction = 'A';  // Отскакивание от правой границы
         break;
     }
     pthread_mutex_unlock(&lock);
     sleep(manip->speed);
+
+    printf("Манипулятор %d переместился из (%d, %d) в (%d, %d)\n", manip->id,
+           oldX, oldY, manip->x, manip->y);
   }
   return NULL;
 }
-
 
 void create_manipulator(int x, int y, int speed, char direction, int id) {
   pthread_mutex_lock(&lock);
@@ -100,8 +110,10 @@ void deactivate_manipulator(int id) {
     if (field.manipulators[i].id == id && field.manipulators[i].active) {
       field.manipulators[i].active = false;
       printf("\n\n\nМанипулятор %d удалён.\n", id);
-      pthread_cancel(field.manipulators[i].thread_id); // Отмена потока манипулятора
-      pthread_join(field.manipulators[i].thread_id, NULL); // Ожидание завершения потока
+      pthread_cancel(
+          field.manipulators[i].thread_id);  // Отмена потока манипулятора
+      pthread_join(field.manipulators[i].thread_id,
+                   NULL);  // Ожидание завершения потока
 
       // Удаление манипулятора из массива
       for (int j = i; j < field.count - 1; j++) {
@@ -114,7 +126,6 @@ void deactivate_manipulator(int id) {
   }
   pthread_mutex_unlock(&lock);
 }
-
 
 void *visualizer_routine(void *arg) {
   while (1) {
@@ -196,7 +207,8 @@ void *controller_routine(void *arg) {
     // Обработка пользовательского ввода
     if (input == 'r' || input == 'R') {
       if (field.count > 0) {
-        printf("\nВыберите манипулятор для удаления (%d - %d): ", 0, field.count - 1);
+        printf("\nВыберите манипулятор для удаления (%d - %d): ", 0,
+               field.count - 1);
         int num = read_number();
         if (num >= 0 && num < field.count) {
           deactivate_manipulator(num);
@@ -205,7 +217,8 @@ void *controller_routine(void *arg) {
         }
       }
     } else if (input == 'c' || input == 'C') {
-      printf("\nВыберите манипулятор для управления (%d - %d): ", 0, field.count - 1);
+      printf("\nВыберите манипулятор для управления (%d - %d): ", 0,
+             field.count - 1);
       int num = read_number();
       if (num >= 0 && num < field.count) {
         field.controlled_manip = num;
@@ -244,7 +257,6 @@ void *controller_routine(void *arg) {
 
   return NULL;
 }
-
 
 int main() {
   pthread_t visualizer_thread, controller_thread;
