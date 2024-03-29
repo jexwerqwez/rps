@@ -44,46 +44,74 @@ void print_field();
 char get_input();
 int read_number();
 
+bool check_collision(int x, int y) {
+  for (int i = 0; i < field.count; i++) {
+    if (field.manipulators[i].active && field.manipulators[i].x == x &&
+        field.manipulators[i].y == y) {
+      return true;
+    }
+  }
+  return false;
+}
+
 void *manipulator_routine(void *arg) {
   Manipulator *manip = (Manipulator *)arg;
-  int oldX, oldY;
+  int oldX, oldY, newX, newY;
 
   while (manip->active) {
     pthread_mutex_lock(&lock);
     oldX = manip->x;
     oldY = manip->y;
+    newX = oldX;
+    newY = oldY;
 
     switch (manip->direction) {
       case 'W':
-        if (manip->y > 0)
-          manip->y--;
-        else
-          manip->direction = 'S';  // Отскакивание от верхней границы
+        newY = (newY > 0) ? newY - 1 : newY;
         break;
       case 'S':
-        if (manip->y < field.height - 1)
-          manip->y++;
-        else
-          manip->direction = 'W';  // Отскакивание от нижней границы
+        newY = (newY < field.height - 1) ? newY + 1 : newY;
         break;
       case 'A':
-        if (manip->x > 0)
-          manip->x--;
-        else
-          manip->direction = 'D';  // Отскакивание от левой границы
+        newX = (newX > 0) ? newX - 1 : newX;
         break;
       case 'D':
-        if (manip->x < field.width - 1)
-          manip->x++;
-        else
-          manip->direction = 'A';  // Отскакивание от правой границы
+        newX = (newX < field.width - 1) ? newX + 1 : newX;
         break;
     }
+
+    if (!check_collision(newX, newY)) {
+      manip->x = newX;
+      manip->y = newY;
+    } else {
+      // Изменяем направление при обнаружении столкновения
+      switch (manip->direction) {
+        case 'W':
+          manip->direction = 'S';
+          break;
+        case 'S':
+          manip->direction = 'W';
+          break;
+        case 'A':
+          manip->direction = 'D';
+          break;
+        case 'D':
+          manip->direction = 'A';
+          break;
+      }
+    }
+
+    if (oldX != manip->x || oldY != manip->y) {
+      printf("Манипулятор %d переместился из (%d, %d) в (%d, %d)\n", manip->id,
+             oldX, oldY, manip->x, manip->y);
+    } else {
+      // Выводим сообщение о смене направления, если манипулятор не двигался
+      // printf("Манипулятор %d изменил направление на %c из-за столкновения\n",
+      // manip->id, manip->direction);
+    }
+
     pthread_mutex_unlock(&lock);
     sleep(manip->speed);
-
-    printf("Манипулятор %d переместился из (%d, %d) в (%d, %d)\n", manip->id,
-           oldX, oldY, manip->x, manip->y);
   }
   return NULL;
 }
