@@ -7,7 +7,9 @@
 #include <time.h>
 #include <unistd.h>
 
-#define MAX_MANIPULATORS 10
+#define N 10
+#define M 10
+#define MAX_MANIPULATORS (N * M - 1)
 #define MOVEMENT_MESSAGE_SIZE 100
 
 typedef struct {
@@ -192,7 +194,6 @@ void *controller_routine(void *arg) {
 
     // Очистка экрана и вывод информации о перемещениях
     pthread_mutex_lock(&lock);
-    system("clear");
     if (!menu_visible) {
       printf("Управляемый манипулятор: %d\n", field.controlled_manip);
     }
@@ -262,8 +263,8 @@ int main() {
   pthread_t visualizer_thread, controller_thread;
 
   srand(time(NULL));  // Инициализация генератора случайных чисел
-  field.width = 10;  // Пример размера поля
-  field.height = 10;
+  field.width = N;
+  field.height = M;
   system("clear");
   rand_state = time(NULL);
   // Создание манипулятора в случайной позиции
