@@ -54,15 +54,19 @@ void *manipulator_routine(void *arg) {
     switch (manip->direction) {
       case 'W':
         if (manip->y > 0) manip->y--;
+        else manip->direction = 'S'; // Отскакивание от верхней границы
         break;
       case 'S':
         if (manip->y < field.height - 1) manip->y++;
+        else manip->direction = 'W'; // Отскакивание от нижней границы
         break;
       case 'A':
         if (manip->x > 0) manip->x--;
+        else manip->direction = 'D'; // Отскакивание от левой границы
         break;
       case 'D':
         if (manip->x < field.width - 1) manip->x++;
+        else manip->direction = 'A'; // Отскакивание от правой границы
         break;
     }
     pthread_mutex_unlock(&lock);
@@ -70,6 +74,7 @@ void *manipulator_routine(void *arg) {
   }
   return NULL;
 }
+
 
 void create_manipulator(int x, int y, int speed, char direction, int id) {
   pthread_mutex_lock(&lock);
@@ -162,12 +167,36 @@ void *controller_routine(void *arg) {
   char input;
   Manipulator *ctrl_manip;
   int oldX, oldY;
+  bool menu_visible = true;
+
   while (1) {
     input = get_input();
+
+    // Проверка для отображения/скрытия меню
+    if (input == 'c' || input == 'C') {
+      menu_visible = true;
+    } else if (input >= '0' && input <= '9') {
+      menu_visible = false;
+    }
+
+    // Очистка экрана и вывод информации о перемещениях
+    pthread_mutex_lock(&lock);
+    system("clear");
+    if (!menu_visible) {
+      printf("Управляемый манипулятор: %d\n", field.controlled_manip);
+    }
+    print_field();
+    pthread_mutex_unlock(&lock);
+
+    if (!menu_visible) {
+      usleep(100000);
+      continue;
+    }
+
+    // Обработка пользовательского ввода
     if (input == 'r' || input == 'R') {
       if (field.count > 0) {
-        printf("\nВыберите манипулятор для удаления (%d - %d): ", 0,
-             field.count - 1);
+        printf("\nВыберите манипулятор для удаления (%d - %d): ", 0, field.count - 1);
         int num = read_number();
         if (num >= 0 && num < field.count) {
           deactivate_manipulator(num);
@@ -176,8 +205,7 @@ void *controller_routine(void *arg) {
         }
       }
     } else if (input == 'c' || input == 'C') {
-      printf("\nВыберите манипулятор для управления (%d - %d): ", 0,
-             field.count - 1);
+      printf("\nВыберите манипулятор для управления (%d - %d): ", 0, field.count - 1);
       int num = read_number();
       if (num >= 0 && num < field.count) {
         field.controlled_manip = num;
@@ -204,17 +232,19 @@ void *controller_routine(void *arg) {
           ctrl_manip->direction = 'A';
         else if (input == 'd' || input == 'D')
           ctrl_manip->direction = 'D';
-        // if (oldX != ctrl_manip->x || oldY != ctrl_manip->y) {
-          printf("Манипулятор %d переместился из (%d, %d) в (%d, %d)\n",
-                 ctrl_manip->id, oldX, oldY, ctrl_manip->x, ctrl_manip->y);
-        // }
+
+        printf("Манипулятор %d переместился из (%d, %d) в (%d, %d)\n",
+               ctrl_manip->id, oldX, oldY, ctrl_manip->x, ctrl_manip->y);
       }
     }
+
     pthread_mutex_unlock(&lock);
     usleep(100000);
   }
+
   return NULL;
 }
+
 
 int main() {
   pthread_t visualizer_thread, controller_thread;
