@@ -90,14 +90,26 @@ void create_manipulator(int x, int y, int speed, char direction, int id) {
 }
 
 void deactivate_manipulator(int id) {
+  pthread_mutex_lock(&lock);
   for (int i = 0; i < field.count; i++) {
     if (field.manipulators[i].id == id && field.manipulators[i].active) {
       field.manipulators[i].active = false;
       printf("\n\n\nМанипулятор %d удалён.\n", id);
+      pthread_cancel(field.manipulators[i].thread_id); // Отмена потока манипулятора
+      pthread_join(field.manipulators[i].thread_id, NULL); // Ожидание завершения потока
+
+      // Удаление манипулятора из массива
+      for (int j = i; j < field.count - 1; j++) {
+        field.manipulators[j] = field.manipulators[j + 1];
+      }
+      field.count--;
+
       break;
     }
   }
+  pthread_mutex_unlock(&lock);
 }
+
 
 void *visualizer_routine(void *arg) {
   while (1) {
