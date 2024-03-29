@@ -7,8 +7,8 @@
 #include <time.h>
 #include <unistd.h>
 
-#define N 10
-#define M 10
+#define N 5
+#define M 5
 #define MAX_MANIPULATORS (N * M - 1)
 #define MOVEMENT_MESSAGE_SIZE 100
 
@@ -118,7 +118,7 @@ void *manipulator_routine(void *arg) {
 
 void create_manipulator(int x, int y, int speed, char direction, int id) {
   pthread_mutex_lock(&lock);
-  if (field.count >= MAX_MANIPULATORS) {
+  if (field.count >= MAX_MANIPULATORS || check_collision(x, y)) {
     pthread_mutex_unlock(&lock);
     return;
   }
@@ -169,7 +169,10 @@ void *visualizer_routine(void *arg) {
 
 void print_field() {
   printf("\033[0;0H");
-
+  printf(
+      "Управление:\nE - добавить манипулятор;\tR - удалить манипулятор;\nC - "
+      "сменить манипулятор;\tV - изменить скорость\n\n");
+  printf("==================================================================\n");
   for (int y = 0; y < field.height; y++) {
     for (int x = 0; x < field.width; x++) {
       char symbol = '.';
@@ -184,6 +187,7 @@ void print_field() {
     }
     printf("\n");
   }
+  printf("==================================================================\n");
 }
 
 int read_number() {
@@ -260,12 +264,19 @@ void *controller_routine(void *arg) {
         pthread_mutex_unlock(&lock);
         create_manipulator(x, y, 1, ' ', field.count);
       }
+    } else if (input == 'v' || input == 'V') {
+      ctrl_manip = &field.manipulators[field.controlled_manip];
+      printf("\nВведите новую скорость для манипулятора %d: ", ctrl_manip->id);
+      int new_speed = read_number();
+      if (new_speed > 0) {
+        ctrl_manip->speed = new_speed;
+        printf("\nСкорость манипулятора %d изменена на %d.\n", ctrl_manip->id, new_speed);
+      }
     } else {
       if (field.count > 0) {
         ctrl_manip = &field.manipulators[field.controlled_manip];
         oldX = ctrl_manip->x;
         oldY = ctrl_manip->y;
-
         if (input == 'w' || input == 'W')
           ctrl_manip->direction = 'W';
         else if (input == 's' || input == 'S')
@@ -274,16 +285,13 @@ void *controller_routine(void *arg) {
           ctrl_manip->direction = 'A';
         else if (input == 'd' || input == 'D')
           ctrl_manip->direction = 'D';
-
         printf("Манипулятор %d переместился из (%d, %d) в (%d, %d)\n",
                ctrl_manip->id, oldX, oldY, ctrl_manip->x, ctrl_manip->y);
       }
     }
-
     pthread_mutex_unlock(&lock);
     usleep(100000);
   }
-
   return NULL;
 }
 
