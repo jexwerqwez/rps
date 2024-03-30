@@ -11,6 +11,12 @@
 #define M 5
 #define MAX_MANIPULATORS (N * M - 1)
 #define MOVEMENT_MESSAGE_SIZE 100
+#define MAX_ITEMS 5
+
+typedef struct {
+  int x;
+  int y;
+} Item;
 
 typedef struct {
   bool active;
@@ -24,10 +30,12 @@ typedef struct {
 
 typedef struct {
   Manipulator manipulators[MAX_MANIPULATORS];
+  Item items[MAX_ITEMS];
   int width;
   int height;
   int count;
   int controlled_manip;
+  int items_count;
 } Field;
 
 Field field;
@@ -43,6 +51,33 @@ void *controller_routine(void *arg);
 void print_field();
 char get_input();
 int read_number();
+void initialize_items();
+void pick_up_item(Manipulator *manip);
+
+void initialize_items() {
+  for (int i = 0; i < MAX_ITEMS; i++) {
+    int x = rand_r(&rand_state) % field.width;
+    int y = rand_r(&rand_state) % field.height;
+    field.items[i].x = x;
+    field.items[i].y = y;
+  }
+  field.items_count = MAX_ITEMS;
+}
+
+void pick_up_item(Manipulator *manip) {
+  for (int i = 0; i < field.items_count; i++) {
+    if (field.items[i].x == manip->x && field.items[i].y == manip->y) {
+      printf("Манипулятор %d поднял предмет на позиции (%d, %d)", manip->id,
+             manip->x, manip->y);
+      // Сдвигаем все последующие элементы на одну позицию влево
+      for (int j = i; j < field.items_count - 1; j++) {
+        field.items[j] = field.items[j + 1];
+      }
+      field.items_count--;  // Уменьшаем количество предметов
+      break;  // Выходим из цикла после обработки первого найденного предмета
+    }
+  }
+}
 
 bool check_collision(int x, int y) {
   for (int i = 0; i < field.count; i++) {
@@ -65,6 +100,7 @@ void *manipulator_routine(void *arg) {
     newX = oldX;
     newY = oldY;
 
+    // Определяем новые координаты в зависимости от направления
     switch (manip->direction) {
       case 'W':
         newY = (newY > 0) ? newY - 1 : newY;
@@ -80,11 +116,13 @@ void *manipulator_routine(void *arg) {
         break;
     }
 
+    // Проверяем, можно ли переместиться на новую позицию
     if (!check_collision(newX, newY)) {
       manip->x = newX;
       manip->y = newY;
+      pick_up_item(manip);  // Проверяем и поднимаем предмет, если он есть
     } else {
-      // Изменяем направление при обнаружении столкновения
+      // Меняем направление при обнаружении столкновения
       switch (manip->direction) {
         case 'W':
           manip->direction = 'S';
@@ -102,12 +140,8 @@ void *manipulator_routine(void *arg) {
     }
 
     if (oldX != manip->x || oldY != manip->y) {
-      printf("Манипулятор %d переместился из (%d, %d) в (%d, %d)\n", manip->id,
+      printf("Манипулятор %d переместился из (%d, %d) в (%d, %d)", manip->id,
              oldX, oldY, manip->x, manip->y);
-    } else {
-      // Выводим сообщение о смене направления, если манипулятор не двигался
-      // printf("Манипулятор %d изменил направление на %c из-за столкновения\n",
-      // manip->id, manip->direction);
     }
 
     pthread_mutex_unlock(&lock);
@@ -172,7 +206,8 @@ void print_field() {
   printf(
       "Управление:\nE - добавить манипулятор;\tR - удалить манипулятор;\nC - "
       "сменить манипулятор;\tV - изменить скорость\n\n");
-  printf("==================================================================\n");
+  printf(
+      "==================================================================\n");
   for (int y = 0; y < field.height; y++) {
     for (int x = 0; x < field.width; x++) {
       char symbol = '.';
@@ -183,11 +218,18 @@ void print_field() {
           break;
         }
       }
+      for (int i = 0; i < field.items_count; i++) {
+        if (field.items[i].x == x && field.items[i].y == y) {
+          symbol = '#';
+          break;
+        }
+      }
       printf("%c ", symbol);
     }
     printf("\n");
   }
-  printf("==================================================================\n");
+  printf(
+      "==================================================================\n");
 }
 
 int read_number() {
@@ -270,7 +312,8 @@ void *controller_routine(void *arg) {
       int new_speed = read_number();
       if (new_speed > 0) {
         ctrl_manip->speed = new_speed;
-        printf("\nСкорость манипулятора %d изменена на %d.\n", ctrl_manip->id, new_speed);
+        printf("\nСкорость манипулятора %d изменена на %d.\n", ctrl_manip->id,
+               new_speed);
       }
     } else {
       if (field.count > 0) {
@@ -303,6 +346,7 @@ int main() {
   field.height = M;
   system("clear");
   rand_state = time(NULL);
+  initialize_items();
   // Создание манипулятора в случайной позиции
   int startX = rand_r(&rand_state) % field.width;
   int startY = rand_r(&rand_state) % field.height;
