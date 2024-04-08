@@ -1,54 +1,69 @@
 #include <iostream>
 #include <sys/socket.h>
-#include <sys/types.h>
 #include <netinet/in.h>
-#include <unistd.h>
 #include <cstring>
+#include <unistd.h>
+
+#define PORT 3456
+#define HOST INADDR_ANY
 
 int main() {
     int server_fd, new_socket;
     struct sockaddr_in address;
+    int opt = 1;
     int addrlen = sizeof(address);
     char buffer[1024] = {0};
-    int opt = 1;
-
-    // создание файлового дескриптора сокета
+    char *hello = "Hello from server";
+    
     if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
         perror("socket failed");
         exit(EXIT_FAILURE);
     }
-
-    // установка опций сокета
-    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt))) {
-        perror("setsockport failed");
-        exit(EXIT_FAILURE);
-    }
-
-    // привязка сокета к порту
+    
     address.sin_family = AF_INET;
-    address.sin_addr.s_addr = (INADDR_ANY);
-    address.sin_port = htons(3425);
-
-    if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0) {
+    address.sin_addr.s_addr = HOST;
+    address.sin_port = htons(PORT);
+    
+    if (bind(server_fd, (struct sockaddr *)&address, sizeof(address))<0) {
         perror("bind failed");
         exit(EXIT_FAILURE);
     }
-
+    
     if (listen(server_fd, 3) < 0) {
-        perror("listen failed");
+        perror("listen");
         exit(EXIT_FAILURE);
     }
-
-    if ((new_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t*)&addrlen)) < 0) {
-        perror("accept failed");
-        exit(EXIT_FAILURE);
+    
+    while (1) {
+        if ((new_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t*)&addrlen))<0) {
+            perror("accept");
+            exit(EXIT_FAILURE);
+        }
+        
+        int pid = fork();
+        if (pid < 0) {
+            perror("fork failed");
+            exit(EXIT_FAILURE);
+        }
+        
+        // Дочерний процесс
+        if (pid == 0) {
+            close(server_fd);
+            
+            // Обработка данных от клиента
+            memset(buffer, 0, 1024);  // Очистка буфера
+            read(new_socket, buffer, 1024);
+            printf("Message from client: %s\n", buffer);
+            send(new_socket, hello, strlen(hello), 0);
+            close(new_socket);
+            
+            exit(0);
+        }
+        // Родительский процесс
+        else {
+            close(new_socket);
+        }
     }
-
-    int valread = read(new_socket, buffer, 1024);
-    printf("%s\n", buffer);
-    char* message = "server message";
-    send(new_socket, message, strlen(message), 0);
-    printf("server message sent\n");
-
+    
     return 0;
 }

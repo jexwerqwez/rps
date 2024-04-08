@@ -1,37 +1,42 @@
 #include <iostream>
 #include <sys/socket.h>
-#include <sys/types.h>
-#include <netinet/in.h>
+#include <arpa/inet.h>
 #include <unistd.h>
-#include <cstring>
+#include <string.h>
+
+#define PORT 3456
+#define SERVER_ADDRESS "127.0.0.1"
 
 int main() {
-    int sock = 0;
-    struct sockaddr_in server_address;
+    int sock = 0, valread;
+    struct sockaddr_in serv_addr;
+    char *hello = "Hello from client";
     char buffer[1024] = {0};
-
-
-    // создание файлового дескриптора сокета
+    
     if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-        perror("socket failed");
-        exit(EXIT_FAILURE);
+        std::cerr << "Socket creation error" << std::endl;
+        return -1;
     }
-    // привязка сокета к порту
-    server_address.sin_family = AF_INET;
-    server_address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-    server_address.sin_port = htons(3425);
-
-    if (connect(sock, (struct sockaddr *)&server_address, sizeof(server_address)) < 0) {
-        perror("connect failed");
-        exit(EXIT_FAILURE);
+    
+    serv_addr.sin_family = AF_INET;
+    serv_addr.sin_port = htons(PORT);
+    
+    if (inet_pton(AF_INET, SERVER_ADDRESS, &serv_addr.sin_addr) <= 0) {
+        std::cerr << "Invalid address/ Address not supported" << std::endl;
+        return -1;
     }
-    char* message = "client message";
-    send(sock, message, strlen(message), 0);
-    int valread = read(sock, buffer, 1024);
-
-    printf("%s\n", buffer);
-    printf("client message sent\n");
+    
+    if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
+        std::cerr << "Connection Failed" << std::endl;
+        return -1;
+    }
+    
+    send(sock, hello, strlen(hello), 0);
+    std::cout << "Hello message sent" << std::endl;
+    valread = read(sock, buffer, 1024);
+    std::cout << buffer << std::endl;
+    
     close(sock);
-
+    
     return 0;
 }

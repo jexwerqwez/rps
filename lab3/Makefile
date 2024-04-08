@@ -11,7 +11,7 @@ server.o:
 	$(CC) $(SERVER) -o $(SERVER_NAME)
 
 client.o:
-	$(CC) $(SERVER) -o $(CLIENT_NAME)
+	$(CC) $(CLIENT) -o $(CLIENT_NAME)
 
 start_server:
 	./$(SERVER_NAME)
