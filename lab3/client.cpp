@@ -18,7 +18,8 @@ int main() {
     }
     // привязка сокета к порту
     server_address.sin_family = AF_INET;
-    server_address.sin_port = htons(8080);
+    server_address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    server_address.sin_port = htons(3425);
 
     if (connect(sock, (struct sockaddr *)&server_address, sizeof(server_address)) < 0) {
         perror("connect failed");
@@ -30,6 +31,7 @@ int main() {
 
     printf("%s\n", buffer);
     printf("client message sent\n");
+    close(sock);
 
     return 0;
 }

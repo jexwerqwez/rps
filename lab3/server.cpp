@@ -10,17 +10,24 @@ int main() {
     struct sockaddr_in address;
     int addrlen = sizeof(address);
     char buffer[1024] = {0};
-
+    int opt = 1;
 
     // создание файлового дескриптора сокета
     if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
         perror("socket failed");
         exit(EXIT_FAILURE);
     }
+
+    // установка опций сокета
+    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt))) {
+        perror("setsockport failed");
+        exit(EXIT_FAILURE);
+    }
+
     // привязка сокета к порту
     address.sin_family = AF_INET;
-    address.sin_addr.s_addr = INADDR_ANY;
-    address.sin_port = htons(8080);
+    address.sin_addr.s_addr = (INADDR_ANY);
+    address.sin_port = htons(3425);
 
     if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0) {
         perror("bind failed");
