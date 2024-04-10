@@ -8,14 +8,13 @@
 #include <iostream>
 #include <sstream>
 #include <vector>
-
-#define PORT 3456
-#define SERVER_ADDRESS "127.0.0.1"
+#define BUFFER_SIZE 1024
 
 struct ClientConfig {
+  int id = 0;
   std::string server_address = "";
   int port = 0;
-  std::vector<std::string> files = {""};
+  std::vector<std::string> files;
 };
 
 ClientConfig readConfig(const std::string& filename) {
@@ -32,14 +31,18 @@ ClientConfig readConfig(const std::string& filename) {
     if (getline(iss, key, ':')) {
       std::string value;
       getline(iss, value);
-      if (key == "server_address") {
+      if (key == "id") {
+        config.id = std::stoi(value.substr(1));
+      }else if (key == "server_address") {
         config.server_address = value.substr(1);
       } else if (key == "port") {
         config.port = std::stoi(value.substr(1));
       } else if (key == "files") {
         std::istringstream filestream(value);
         std::string file;
-        while (filestream >> file) config.files.push_back(file);
+        while (filestream >> file) {
+          config.files.push_back(file);
+        }
       }
     }
   }
@@ -50,8 +53,7 @@ ClientConfig readConfig(const std::string& filename) {
 int main(int argc, char** argv) {
   int sock = 0, valread;
   struct sockaddr_in serv_addr;
-  char* hello = "Hello from client";
-  char buffer[1024] = {0};
+  char buffer[BUFFER_SIZE] = {0};
   if (argc < 2) {
     perror("Usage: ./client <config_file>");
     exit(EXIT_FAILURE);
@@ -65,9 +67,9 @@ int main(int argc, char** argv) {
   }
 
   serv_addr.sin_family = AF_INET;
-  serv_addr.sin_port = htons(PORT);
+  serv_addr.sin_port = htons(config.port);
 
-  if (inet_pton(AF_INET, SERVER_ADDRESS, &serv_addr.sin_addr) <= 0) {
+  if (inet_pton(AF_INET, config.server_address.c_str(), &serv_addr.sin_addr) <= 0) {
     std::cerr << "Invalid address/ Address not supported" << std::endl;
     return -1;
   }
@@ -76,18 +78,19 @@ int main(int argc, char** argv) {
     std::cerr << "Connection Failed" << std::endl;
     return -1;
   }
-
-  send(sock, hello, strlen(hello), 0);
-  std::cout << "Hello message sent" << std::endl;
-  valread = read(sock, buffer, 1024);
-  std::cout << buffer << std::endl;
-  std::cout << "Server Address: " << config.server_address << std::endl;
-  std::cout << "Port: " << config.port << std::endl;
-  std::cout << "Files: ";
-
-  for (const auto& file : config.files) std::cout << file << " ";
+  send(sock, std::to_string(config.id).c_str(), sizeof(std::to_string(config.id)).length(), 0);
+  sleep(1);
+  // for (const auto& file : config.files) {
+  //   // conts auto& file = config.files[0];
+  //   send(sock, file.c_str(), file.length(), 0);
+  //   memset(buffer, 0, BUFFER_SIZE);
+  //   valread = read(sock, buffer, BUFFER_SIZE);
+  //   std::cout << "File " << " exists on server: " << buffer << std::endl;
+  //   sleep(1);
+  // }
 
   close(sock);
 
   return 0;
 }
+ 

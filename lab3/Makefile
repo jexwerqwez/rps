@@ -7,7 +7,7 @@ SERVER_CONFIG = config_server
 CLIENT_NAME = client
 CLIENT_CONFIG = config_client
 
-all: server.o client.o
+all: server.o client.o start_server
 
 server.o:
 	$(CC) $(SERVER) -o $(SERVER_NAME)
