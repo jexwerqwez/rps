@@ -1,4 +1,4 @@
-id: 1
+id: 2
 server_address: 127.0.0.1
 port: 3456
 files: file1 file2 file3 file4 file5
