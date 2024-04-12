@@ -2,6 +2,7 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <unistd.h>
+
 #include <cstdio>
 #include <cstring>
 #include <fstream>
@@ -65,7 +66,6 @@ int main(int argc, char** argv) {
   std::istringstream iss(response);
   std::string existsStr;
   double serverFileSize;
-
   if (iss >> existsStr >> serverFileSize) {
     bool exists = existsStr == "true";
     std::cout << "File exists on server: " << std::boolalpha << exists
@@ -74,6 +74,13 @@ int main(int argc, char** argv) {
 
     std::ifstream localFile(config.files[0],
                             std::ifstream::ate | std::ifstream::binary);
+    if (!localFile && exists) {
+      // Если файл не открыт, но существует на сервере, создаём его
+      std::ofstream newFile(config.files[0], std::ios::binary);
+      newFile.close();
+      localFile.open(config.files[0],
+                     std::ifstream::ate | std::ifstream::binary);
+    }
     if (localFile) {
       double localFileSize = localFile.tellg();
       std::cout << "Local file size: " << localFileSize << " bytes"
@@ -144,7 +151,6 @@ void getAndProcessFileSize(int sock, ClientConfig& config) {
 }
 
 void receiveFileData(int sock, const std::string& filePath) {
-
   // std::cout << "receiveFileData " << filePath << std::endl;
   std::cout << "Starting file download: " << filePath << std::endl;
   std::ofstream file(filePath, std::ios::binary | std::ios::app);
@@ -157,6 +163,7 @@ void receiveFileData(int sock, const std::string& filePath) {
   }
 
   while ((bytesReceived = recv(sock, buffer, sizeof(buffer), 0)) > 0) {
+    sleep(1);
     file.write(buffer, bytesReceived);
     std::cout << "Received " << bytesReceived << " bytes" << std::endl;
   }

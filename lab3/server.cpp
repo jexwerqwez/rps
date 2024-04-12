@@ -94,6 +94,7 @@ int main(int argc, char** argv) {
       std::fstream file = checkFileExistance(config, client_id, new_socket);
       std::string recieved_file =
           checkFileStatus(file, new_socket, client_id, config);
+
       if (!recieved_file.empty()) {
         char readyBuffer[BUFFER_SIZE] = {0};
         int messageLength = read(new_socket, readyBuffer, BUFFER_SIZE);
@@ -181,37 +182,40 @@ float readClientFile(std::fstream& file, const std::string& fileName) {
   return -1;  // Возвращаем -1, если файл не найден
 }
 
-std::string checkFileStatus(std::fstream& file, int new_socket, int client_id, ServerConfig& config) {
-    char buffer[BUFFER_SIZE] = {0};
-    memset(buffer, 0, BUFFER_SIZE);
-    int valread = read(new_socket, buffer, BUFFER_SIZE);
-    if (valread > 0) {
-        buffer[valread] = '\0';
-        std::string clientFileName(buffer);
-        std::cout << "Received file name: " << clientFileName << std::endl;
+std::string checkFileStatus(std::fstream& file, int new_socket, int client_id,
+                            ServerConfig& config) {
+  char buffer[BUFFER_SIZE] = {0};
+  memset(buffer, 0, BUFFER_SIZE);
+  int valread = read(new_socket, buffer, BUFFER_SIZE);
+  if (valread > 0) {
+    buffer[valread] = '\0';
+    std::string clientFileName(buffer);
+    std::cout << "Received file name: " << clientFileName << std::endl;
 
-        std::string serverFilePath = "server_files/" + clientFileName;
-        bool fileExistsOnServer = std::ifstream(serverFilePath).good();
-        float file_size = readClientFile(file, clientFileName);
-        if (fileExistsOnServer && file_size < 0) {
-            std::cout << "Adding new entry for: " << clientFileName << std::endl;
-            file.clear(); // Очищаем ошибки и сбрасываем состояние файла
-            file.seekp(0, std::ios::end); // Перемещаем указатель в конец файла перед записью
-            file << clientFileName << ": " << 0 << std::endl;
-            if (!file) {
-                std::cerr << "Failed to write to file" << std::endl;
-            } else {
-                std::cout << "Entry added successfully" << std::endl;
-            }
-            file_size = 0;
-        }
-        std::string response = fileExistsOnServer ? "true " + std::to_string(file_size) : "false 0";
-        send(new_socket, response.c_str(), response.length(), 0);
-        return clientFileName;
+    std::string serverFilePath = "server_files/" + clientFileName;
+    bool fileExistsOnServer = std::ifstream(serverFilePath).good();
+    float file_size = readClientFile(file, clientFileName);
+    if (fileExistsOnServer && file_size < 0) {
+      std::cout << "Adding new entry for: " << clientFileName << std::endl;
+      file.clear();  // Очищаем ошибки и сбрасываем состояние файла
+      file.seekp(
+          0,
+          std::ios::end);  // Перемещаем указатель в конец файла перед записью
+      file << clientFileName << ": " << 0 << std::endl;
+      if (!file) {
+        std::cerr << "Failed to write to file" << std::endl;
+      } else {
+        std::cout << "Entry added successfully" << std::endl;
+      }
+      file_size = 0;
     }
-    return "";
+    std::string response =
+        fileExistsOnServer ? "true " + std::to_string(file_size) : "false 0";
+    send(new_socket, response.c_str(), response.length(), 0);
+    return clientFileName;
+  }
+  return "";
 }
-
 
 ServerConfig readConfig(const std::string& filename) {
   ServerConfig config;
