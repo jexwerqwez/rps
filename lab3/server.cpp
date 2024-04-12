@@ -28,7 +28,7 @@ std::fstream checkFileExistance(ServerConfig& config, int client_id,
                                 int new_socket);
 std::string checkFileStatus(std::fstream& progress_file, int new_socket,
                             int client_id, ServerConfig& config);
-float readClientFile(std::fstream& file, std::string buffer);
+float readClientFile(std::fstream& file, const std::string& fileName);
 void sendFileData(ServerConfig& config, int client_id, int new_socket,
                   const std::string& file_path);
 
@@ -98,12 +98,10 @@ int main(int argc, char** argv) {
         char readyBuffer[BUFFER_SIZE] = {0};
         int messageLength = read(new_socket, readyBuffer, BUFFER_SIZE);
         std::string clientMessage(readyBuffer, messageLength);
-        std::cout << "Client message: " << clientMessage << std::endl;
         if (clientMessage == "SENDING DATA") {
           std::string clientMessage(readyBuffer, messageLength);
           std::cout << "Client message: " << clientMessage << std::endl;
-          sendFileData(config, client_id, new_socket,
-                       "server_files/" + recieved_file);
+          sendFileData(config, client_id, new_socket, recieved_file);
         }
       }
       close(new_socket);
@@ -129,6 +127,8 @@ std::fstream checkFileExistance(ServerConfig& config, int client_id,
                                 int new_socket) {
   std::string file_path =
       config.directory + "/client_" + std::to_string(client_id) + ".txt";
+
+  std::cout << "file_path: " << file_path << std::endl;
   std::fstream file(
       file_path, std::fstream::in | std::fstream::out |
                      std::fstream::app);  // Открытие файла для чтения и записи
@@ -151,16 +151,24 @@ std::fstream checkFileExistance(ServerConfig& config, int client_id,
   return file;
 }
 
-float readClientFile(std::fstream& file, std::string buffer) {
+float readClientFile(std::fstream& file, const std::string& fileName) {
+  file.clear();  // Очистка флагов состояния
+  file.seekg(0, std::ios::beg);  // Перемещение указателя в начало файла
   std::string line;
   while (std::getline(file, line)) {
     std::istringstream iss(line);
     std::string key;
     float value;
-    if (std::getline(iss, key, ':') && key == buffer && iss >> value)
-      return value;
+    std::cout << fileName << std::endl;
+    std::getline(iss, key, ':');
+    std::cout << "key: " << key << " fileName: " << fileName << std::endl;
+    if (key == fileName) {
+      iss >> value;
+      std::cout << "key: " << key << " value: " << value << std::endl;
+      return value;  // Возвращаем значение, если нашли правильную строку
+    }
   }
-  return -1;
+  return -1;  // Возвращаем -1, если файл не найден
 }
 
 std::string checkFileStatus(std::fstream& file, int new_socket, int client_id,
@@ -176,18 +184,20 @@ std::string checkFileStatus(std::fstream& file, int new_socket, int client_id,
     // Проверка наличия файла в server_files/
     std::string serverFilePath = "server_files/" + clientFileName;
     bool fileExistsOnServer = std::ifstream(serverFilePath).good();
-
-    // Проверка записи о файле в client_*.txt
-    float fileSize = readClientFile(file, clientFileName);
-    if (fileExistsOnServer && fileSize < 0) {
-      // Добавление записи, если файла нет в client_*.txt
-      file << clientFileName << " : " << 0 << std::endl;
-      fileSize = 0;
+    float file_size = 0;
+    if (fileExistsOnServer) {
+      std::cout << "fileExistsOnServer: " << fileExistsOnServer << std::endl;
+      file_size = readClientFile(file, clientFileName);
+      if (file_size < 0) {
+        std::cout << "file_size: " << file_size << std::endl;
+        std::cout << "clientFileName: " << clientFileName << std::endl;
+        file << clientFileName << ": " << 0 << std::endl;
+        file_size = 0;
+      }
     }
-
     // Отправка данных клиенту
     std::string response =
-        fileExistsOnServer ? "true " + std::to_string(fileSize) : "false 0";
+        fileExistsOnServer ? "true " + std::to_string(file_size) : "false 0";
     send(new_socket, response.c_str(), response.length(), 0);
 
     return clientFileName;
@@ -223,7 +233,7 @@ ServerConfig readConfig(const std::string& filename) {
 
 void sendFileData(ServerConfig& config, int client_id, int new_socket,
                   const std::string& file_name) {
-  std::string file_path = file_name;
+  std::string file_path = "server_files/" + file_name;
   std::cout << "Sending file data: " << file_path << std::endl;
 
   std::ifstream file(file_path, std::ios::binary);
@@ -239,13 +249,13 @@ void sendFileData(ServerConfig& config, int client_id, int new_socket,
     int bytes_to_send = file.gcount();
     send(new_socket, buffer, bytes_to_send, 0);
     sent_bytes += bytes_to_send;
-    std::cout << "Total bytes sent for " << file_path << ": " << sent_bytes
+    std::cout << "Total bytes sent for " << file_name << ": " << sent_bytes
               << std::endl;
   }
 
   file.close();
 
-  // Update progress in the client progress file
+  // Обновление прогресса в файле клиента
   std::string progress_file_path =
       config.directory + "/client_" + std::to_string(client_id) + ".txt";
   std::fstream progress_file(progress_file_path, std::fstream::in |
@@ -257,22 +267,25 @@ void sendFileData(ServerConfig& config, int client_id, int new_socket,
     return;
   }
 
-  std::string temp_line;
   std::map<std::string, size_t> file_sizes;
-  while (std::getline(progress_file, temp_line)) {
-    std::istringstream iss(temp_line);
-    std::string temp_file_name;
-    size_t temp_size;
-    if (iss >> temp_file_name >> temp_size) {
-      file_sizes[temp_file_name] = temp_size;
+  std::string line;
+  while (std::getline(progress_file, line)) {
+    std::istringstream iss(line);
+    std::string filename;
+    size_t size;
+    if (iss >> filename >> size) {
+      file_sizes[filename] = size;
     }
   }
+
   file_sizes[file_name] = sent_bytes;
   progress_file.close();
-  progress_file.open(progress_file_path,
-                     std::fstream::out | std::fstream::trunc);
+  progress_file.open(
+      progress_file_path,
+      std::fstream::out | std::fstream::trunc);  // Очистка файла для перезаписи
   for (const auto& pair : file_sizes) {
     progress_file << pair.first << " : " << pair.second << std::endl;
   }
+
   progress_file.close();
 }
