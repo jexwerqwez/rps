@@ -19,14 +19,16 @@ struct ClientConfig {
 
 ClientConfig readConfig(const std::string& filename);
 void getAndProcessFileSize(int sock, ClientConfig& config);
+void receiveFileData(int sock, const std::string& filePath);
 
 int main(int argc, char** argv) {
   int sock = 0, valread;
   struct sockaddr_in serv_addr;
   char buffer[BUFFER_SIZE] = {0};
+
   if (argc < 2) {
-    perror("Usage: ./client <config_file>");
-    exit(EXIT_FAILURE);
+    std::cerr << "Usage: ./client <config_file>" << std::endl;
+    return -1;
   }
 
   ClientConfig config = readConfig(argv[1]);
@@ -63,13 +65,13 @@ int main(int argc, char** argv) {
   std::istringstream iss(response);
   std::string existsStr;
   double serverFileSize;
+
   if (iss >> existsStr >> serverFileSize) {
     bool exists = existsStr == "true";
     std::cout << "File exists on server: " << std::boolalpha << exists
               << ", Server file size: " << serverFileSize << " bytes"
               << std::endl;
 
-    // Получаем размер локального файла
     std::ifstream localFile(config.files[0],
                             std::ifstream::ate | std::ifstream::binary);
     if (localFile) {
@@ -77,12 +79,10 @@ int main(int argc, char** argv) {
       std::cout << "Local file size: " << localFileSize << " bytes"
                 << std::endl;
 
-      // Сравниваем размеры
       if (localFileSize == serverFileSize) {
-        std::cout << "READY" << std::endl;
-        // Отправляем сообщение серверу о готовности передачи данных
         std::string readyMessage = "SENDING DATA";
         send(sock, readyMessage.c_str(), readyMessage.length(), 0);
+        receiveFileData(sock, config.files[0]);
       } else {
         std::cerr << "Error: File size mismatch. Local: " << localFileSize
                   << ", Server: " << serverFileSize << std::endl;
@@ -90,7 +90,6 @@ int main(int argc, char** argv) {
     } else {
       std::cerr << "Error: Unable to open the file." << std::endl;
     }
-
   } else {
     std::cerr << "Failed to parse server response: " << response << std::endl;
   }
@@ -137,4 +136,23 @@ void getAndProcessFileSize(int sock, ClientConfig& config) {
        sizeof(std::to_string(config.id)).length(), 0);
 
   sleep(1);
+}
+
+void receiveFileData(int sock, const std::string& filePath) {
+  std::cout << "receiveFileData " << filePath << std::endl;
+  std::ofstream file(filePath, std::ios::binary | std::ios::app);
+  char buffer[4096];
+  int bytesReceived;
+
+  if (!file.is_open()) {
+    std::cerr << "Failed to open file: " << filePath << std::endl;
+    return;
+  }
+
+  while ((bytesReceived = recv(sock, buffer, sizeof(buffer), 0)) > 0) {
+    file.write(buffer, bytesReceived);
+    std::cout << "Received " << bytesReceived << " bytes" << std::endl;
+  }
+
+  file.close();
 }
