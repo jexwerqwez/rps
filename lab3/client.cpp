@@ -2,13 +2,13 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <unistd.h>
-
+#include <cstdio>
 #include <cstring>
 #include <fstream>
 #include <iostream>
 #include <sstream>
 #include <vector>
-#define BUFFER_SIZE 1024
+#define BUFFER_SIZE 4096
 
 struct ClientConfig {
   int id = 0;
@@ -84,8 +84,13 @@ int main(int argc, char** argv) {
         send(sock, readyMessage.c_str(), readyMessage.length(), 0);
         receiveFileData(sock, config.files[0]);
       } else {
-        std::cerr << "Error: File size mismatch. Local: " << localFileSize
-                  << ", Server: " << serverFileSize << std::endl;
+        std::ostringstream resumeMsg;
+        resumeMsg << "RESUME DOWNLOAD " << config.files[0] << " "
+                  << localFileSize;
+        std::cout << "Requesting file resume from byte: " << localFileSize
+                  << std::endl;
+        send(sock, resumeMsg.str().c_str(), resumeMsg.str().length(), 0);
+        receiveFileData(sock, config.files[0]);
       }
     } else {
       std::cerr << "Error: Unable to open the file." << std::endl;
@@ -139,9 +144,11 @@ void getAndProcessFileSize(int sock, ClientConfig& config) {
 }
 
 void receiveFileData(int sock, const std::string& filePath) {
-  std::cout << "receiveFileData " << filePath << std::endl;
+
+  // std::cout << "receiveFileData " << filePath << std::endl;
+  std::cout << "Starting file download: " << filePath << std::endl;
   std::ofstream file(filePath, std::ios::binary | std::ios::app);
-  char buffer[4096];
+  char buffer[BUFFER_SIZE];
   int bytesReceived;
 
   if (!file.is_open()) {
