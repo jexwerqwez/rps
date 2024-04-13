@@ -7,6 +7,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <fstream>
@@ -116,14 +117,9 @@ int main(int argc, char** argv) {
           std::cout << "Requesting file resume from byte: " << localFileSize
                     << std::endl;
           send(sock, resumeMsg.str().c_str(), resumeMsg.str().length(), 0);
-          //       receiveFileData(sock, config.files[0]);
+          receiveFileData(sock, file);
         }
-        //   } else {
-        //     std::cerr << "Error: Unable to open the file." << std::endl;
       }
-      // } else {
-      //   std::cerr << "Failed to parse server response: " << response <<
-      //   std::endl;
     }
   }
   close(sock);
@@ -202,18 +198,44 @@ void receiveFileData(int sock, const std::string& filePath) {
   char buffer[BUFFER_SIZE];
   int bytesReceived;
   bool endOfDataReceived = false;
+  size_t totalReceived = 0;
+  const int numBlocks = 50;
+
+  // Чтение размера файла
+  bytesReceived = recv(sock, buffer, BUFFER_SIZE, 0);
+  std::string sizeStr(buffer, bytesReceived);
+  size_t fileSize = std::stoul(sizeStr.substr(0, sizeStr.find('\n')));
+  std::cout << "Expected file size: " << fileSize << " bytes" << std::endl;
 
   while ((bytesReceived = recv(sock, buffer, sizeof(buffer), 0)) > 0) {
-    if (strstr(buffer,
-               "END_OF_DATA")) {  // Проверка на наличие маркера завершения
+    usleep(10);
+
+    file.write(buffer, bytesReceived);
+    totalReceived += bytesReceived;
+    if (strstr(buffer, "END_OF_DATA") ||
+        totalReceived >= fileSize) {  // Проверка на наличие маркера завершения
       endOfDataReceived = true;
+      std::cout << std::endl;
       break;
     }
-    file.write(buffer, bytesReceived);
-    std::cout << "Received " << bytesReceived << " bytes" << std::endl;
+
+    // Обновление прогресс-бара
+    int progress = ceil(((double)totalReceived / (double)fileSize) * numBlocks);
+    std::cout << "\r[";
+    for (int i = 0; i < numBlocks; ++i) {
+      std::cout << (i < progress ? "=" : " ");
+    }
+    std::cout << "] " << (int)(((double)totalReceived / (double)fileSize) * 100)
+              << "%" << std::flush;
   }
 
+  // Обеспечиваем, что прогресс-бар достигает 100%
   if (endOfDataReceived) {
+    std::cout << "\r[";
+    for (int i = 0; i < numBlocks; ++i) {
+      std::cout << "=";
+    }
+    std::cout << "] 100%" << std::endl;
     std::cout << "All data received for this file." << std::endl;
   }
 

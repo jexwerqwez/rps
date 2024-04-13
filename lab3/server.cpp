@@ -19,7 +19,6 @@
 #include <string>
 #include <vector>
 
-#define BUFFER_SIZE 4096
 /**
  * @struct ServerConfig
  * @brief Структура для хранения конфигурации сервера.
@@ -31,6 +30,7 @@
 struct ServerConfig {
   std::string server_address = "";
   int port = 0;
+  int buffer_size = 0;
   std::string directory = "";
 };
 
@@ -72,6 +72,7 @@ int main(int argc, char** argv) {
 
   std::cout << "Server Address: " << config.server_address << std::endl;
   std::cout << "Port: " << config.port << std::endl;
+  std::cout << "Buffer: " << config.buffer_size << std::endl;
   std::cout << "Directory: " << config.directory << std::endl;
 
   if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
@@ -109,9 +110,9 @@ int main(int argc, char** argv) {
     // Дочерний процесс
     if (pid == 0) {
       close(server_fd);
-      char id_buffer[BUFFER_SIZE];
-      memset(id_buffer, 0, BUFFER_SIZE);
-      valread = read(new_socket, id_buffer, BUFFER_SIZE);
+      char id_buffer[config.buffer_size];
+      memset(id_buffer, 0, config.buffer_size);
+      valread = read(new_socket, id_buffer, config.buffer_size);
       std::string client_id_str(id_buffer, valread);
       int client_id = std::stoi(client_id_str);
       std::cout << "Client id: " << client_id << std::endl;
@@ -122,8 +123,8 @@ int main(int argc, char** argv) {
         std::string recieved_file =
             checkFileStatus(file, new_socket, client_id, config);
         if (!recieved_file.empty()) {
-          char readyBuffer[BUFFER_SIZE] = {0};
-          int messageLength = read(new_socket, readyBuffer, BUFFER_SIZE);
+          char readyBuffer[config.buffer_size] = {0};
+          int messageLength = read(new_socket, readyBuffer, config.buffer_size);
           std::string clientMessage(readyBuffer, messageLength);
           std::cout << clientMessage << std::endl;
           if (clientMessage == "SENDING DATA") {
@@ -246,33 +247,37 @@ float readClientFile(std::fstream& file, const std::string& fileName) {
 
 std::string checkFileStatus(std::fstream& file, int new_socket, int client_id,
                             ServerConfig& config) {
-  char buffer[BUFFER_SIZE] = {0};
-  memset(buffer, 0, BUFFER_SIZE);
-  int valread = read(new_socket, buffer, BUFFER_SIZE);
+  char buffer[config.buffer_size] = {0};
+  memset(buffer, 0, config.buffer_size);
+  int valread = read(new_socket, buffer, config.buffer_size);
   if (valread > 0) {
     buffer[valread] = '\0';
     std::string clientFileName(buffer);
     std::cout << "Received file name: " << clientFileName << std::endl;
 
     std::string serverFilePath = "server_files/" + clientFileName;
-    bool fileExistsOnServer = std::ifstream(serverFilePath).good();
+    std::ifstream serverFile(serverFilePath);
+    bool fileExistsOnServer = serverFile.good();
+    serverFile.close();
+
+    if (!fileExistsOnServer) {
+      std::cerr << "File " << clientFileName << " not found on server."
+                << std::endl;
+      std::string response = "File not found";
+      send(new_socket, response.c_str(), response.length(), 0);
+      return "";  // Пропускаем текущий файл, возвращаем пустую строку
+    }
+
     float file_size = readClientFile(file, clientFileName);
-    if (fileExistsOnServer && file_size < 0) {
+    if (file_size < 0) {  // Если файла нет в файле прогресса
       std::cout << "Adding new entry for: " << clientFileName << std::endl;
-      file.clear();  // Очищаем ошибки и сбрасываем состояние файла
-      file.seekp(
-          0,
-          std::ios::end);  // Перемещаем указатель в конец файла перед записью
+      file.clear();
+      file.seekp(0, std::ios::end);
       file << clientFileName << ": " << 0 << std::endl;
-      if (!file) {
-        std::cerr << "Failed to write to file" << std::endl;
-      } else {
-        std::cout << "Entry added successfully" << std::endl;
-      }
       file_size = 0;
     }
-    std::string response =
-        fileExistsOnServer ? "true " + std::to_string(file_size) : "false 0";
+
+    std::string response = "true " + std::to_string(file_size);
     send(new_socket, response.c_str(), response.length(), 0);
     return clientFileName;
   }
@@ -304,6 +309,8 @@ ServerConfig readConfig(const std::string& filename) {
         config.server_address = value.substr(1);
       else if (key == "port")
         config.port = std::stoi(value.substr(1));
+      else if (key == "buffer_size")
+        config.buffer_size = std::stoi(value.substr(1));
       else if (key == "directory")
         config.directory = value.substr(1);
     }
@@ -327,14 +334,21 @@ void sendFileData(ServerConfig& config, int client_id, int new_socket,
   std::string file_path = "server_files/" + file_name;
   std::cout << "Sending file data: " << file_path << std::endl;
 
-  std::ifstream file(file_path, std::ios::binary);
+  std::ifstream file(file_path, std::ios::binary | std::ios::ate);
   if (!file.is_open()) {
     std::cerr << "Failed to open file: " << file_path << std::endl;
     return;
   }
-  file.seekg(startPos, std::ios::beg);
+  // file.seekg(startPos, std::ios::beg);
+  size_t file_size = file.tellg();  // Получаем размер файла
+  file.seekg(startPos,
+             std::ios::beg);  // Возвращаемся к началу файла для чтения
 
-  char buffer[BUFFER_SIZE];
+  // Отправка размера файла клиенту
+  std::string sizeMsg = std::to_string(file_size) + "\n";
+  send(new_socket, sizeMsg.c_str(), sizeMsg.length(), 0);
+
+  char buffer[config.buffer_size];
   size_t sent_bytes = startPos;
   while (!file.eof()) {
     file.read(buffer, sizeof(buffer));
