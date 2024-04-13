@@ -33,7 +33,7 @@ struct ClientConfig {
   std::vector<std::string> files;
 };
 
-ClientConfig readConfig(const std::string& filename);
+ClientConfig readClientConfig(const std::string& filename);
 void getAndProcessFileSize(int sock, ClientConfig& config);
 void receiveFileData(int sock, const std::string& filePath);
 
@@ -55,7 +55,7 @@ int main(int argc, char** argv) {
     return -1;
   }
 
-  ClientConfig config = readConfig(argv[1]);
+  ClientConfig config = readClientConfig(argv[1]);
 
   if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
     std::cerr << "Socket creation error" << std::endl;
@@ -133,7 +133,7 @@ int main(int argc, char** argv) {
  * @return Структура конфигурации клиента.
  */
 
-ClientConfig readConfig(const std::string& filename) {
+ClientConfig readClientConfig(const std::string& filename) {
   ClientConfig config;
   std::ifstream file(filename);
   std::string line;

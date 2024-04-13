@@ -34,7 +34,7 @@ struct ServerConfig {
   std::string directory = "";
 };
 
-ServerConfig readConfig(const std::string& filename);
+ServerConfig readServerConfig(const std::string& filename);
 void checkDirectory(ServerConfig& config);
 std::fstream checkFileExistance(ServerConfig& config, int client_id,
                                 int new_socket);
@@ -68,7 +68,7 @@ int main(int argc, char** argv) {
     return -1;
   }
 
-  ServerConfig config = readConfig(argv[1]);
+  ServerConfig config = readServerConfig(argv[1]);
 
   std::cout << "Server Address: " << config.server_address << std::endl;
   std::cout << "Port: " << config.port << std::endl;
@@ -291,7 +291,7 @@ std::string checkFileStatus(std::fstream& file, int new_socket, int client_id,
  * @return Структура с настройками сервера.
  */
 
-ServerConfig readConfig(const std::string& filename) {
+ServerConfig readServerConfig(const std::string& filename) {
   ServerConfig config;
   std::ifstream file(filename);
   std::string line;
