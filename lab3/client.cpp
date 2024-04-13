@@ -1,3 +1,7 @@
+/**
+ * @file client.cpp
+ * @brief Клиентская часть для работы с файловым сервером.
+ */
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
@@ -11,6 +15,16 @@
 #include <vector>
 #define BUFFER_SIZE 4096
 
+/**
+ * @struct ClientConfig
+ * @brief Структура для хранения конфигурации клиента.
+ *
+ * @var ClientConfig::id Идентификатор клиента.
+ * @var ClientConfig::server_address IP-адрес сервера.
+ * @var ClientConfig::port Порт сервера.
+ * @var ClientConfig::files Список файлов для передачи.
+ */
+
 struct ClientConfig {
   int id = 0;
   std::string server_address = "";
@@ -21,6 +35,14 @@ struct ClientConfig {
 ClientConfig readConfig(const std::string& filename);
 void getAndProcessFileSize(int sock, ClientConfig& config);
 void receiveFileData(int sock, const std::string& filePath);
+
+/**
+ * @brief Главная функция клиента для передачи файлов.
+ *
+ * @param argc Количество аргументов командной строки.
+ * @param argv Массив аргументов командной строки.
+ * @return Код завершения программы.
+ */
 
 int main(int argc, char** argv) {
   int sock = 0, valread;
@@ -108,6 +130,13 @@ int main(int argc, char** argv) {
   return 0;
 }
 
+/**
+ * @brief Читает конфигурацию клиента из файла.
+ *
+ * @param filename Имя файла конфигурации.
+ * @return Структура конфигурации клиента.
+ */
+
 ClientConfig readConfig(const std::string& filename) {
   ClientConfig config;
   std::ifstream file(filename);
@@ -141,12 +170,26 @@ ClientConfig readConfig(const std::string& filename) {
   return config;
 }
 
+/**
+ * @brief Инициирует запрос на получение размера файла.
+ *
+ * @param sock Дескриптор сокета.
+ * @param config Конфигурация клиента.
+ */
+
 void getAndProcessFileSize(int sock, ClientConfig& config) {
   send(sock, std::to_string(config.id).c_str(),
        sizeof(std::to_string(config.id)).length(), 0);
 
   sleep(1);
 }
+
+/**
+ * @brief Получает данные файла от сервера и записывает их в файл.
+ *
+ * @param sock Дескриптор сокета.
+ * @param filePath Путь к файлу для сохранения данных.
+ */
 
 void receiveFileData(int sock, const std::string& filePath) {
   std::cout << "Starting file download: " << filePath << std::endl;

@@ -1,3 +1,8 @@
+/**
+ * @file server.cpp
+ * @brief Описание серверной части приложения для обработки файловых запросов.
+ */
+
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
@@ -15,7 +20,14 @@
 #include <vector>
 
 #define BUFFER_SIZE 4096
-
+/**
+ * @struct ServerConfig
+ * @brief Структура для хранения конфигурации сервера.
+ *
+ * @var ServerConfig::server_address IP-адрес сервера.
+ * @var ServerConfig::port Порт сервера.
+ * @var ServerConfig::directory Директория для файлов клиента.
+ */
 struct ServerConfig {
   std::string server_address = "";
   int port = 0;
@@ -31,8 +43,19 @@ std::string checkFileStatus(std::fstream& progress_file, int new_socket,
 float readClientFile(std::fstream& file, const std::string& fileName);
 void sendFileData(ServerConfig& config, int client_id, int new_socket,
                   const std::string& file_name, size_t startPos);
-void updateProgressFile(const std::string& progressFilePath, const std::string& fileName, size_t sentBytes);
+void updateProgressFile(const std::string& progressFilePath,
+                        const std::string& fileName, size_t sentBytes);
 
+/**
+ * @brief Главная функция сервера.
+ *
+ * Инициализирует сервер, обрабатывает подключения клиентов и управляет
+ * передачей данных.
+ *
+ * @param argc Количество аргументов командной строки.
+ * @param argv Массив аргументов командной строки.
+ * @return Код завершения программы.
+ */
 
 int main(int argc, char** argv) {
   int server_fd, new_socket, valread;
@@ -131,6 +154,12 @@ int main(int argc, char** argv) {
   return 0;
 }
 
+/**
+ * @brief Проверяет и создает директорию, если она не существует.
+ *
+ * @param config Конфигурация сервера.
+ */
+
 void checkDirectory(ServerConfig& config) {
   struct stat st = {0};
   if (stat(config.directory.c_str(), &st) == -1) {
@@ -139,6 +168,15 @@ void checkDirectory(ServerConfig& config) {
     mkdir(config.directory.c_str(), 0700);
   }
 }
+
+/**
+ * @brief Проверяет наличие файла клиента и создает его, если не существует.
+ *
+ * @param config Конфигурация сервера.
+ * @param client_id Идентификатор клиента.
+ * @param new_socket Дескриптор сокета нового клиента.
+ * @return Открытый файловый поток.
+ */
 
 std::fstream checkFileExistance(ServerConfig& config, int client_id,
                                 int new_socket) {
@@ -168,6 +206,14 @@ std::fstream checkFileExistance(ServerConfig& config, int client_id,
   return file;
 }
 
+/**
+ * @brief Читает значение размера файла из файла прогресса.
+ *
+ * @param file Открытый файловый поток для файла прогресса.
+ * @param fileName Имя файла, для которого необходимо прочитать прогресс.
+ * @return Размер файла в байтах, если найден; -1, если запись отсутствует.
+ */
+
 float readClientFile(std::fstream& file, const std::string& fileName) {
   file.clear();  // Очистка флагов состояния
   file.seekg(0, std::ios::beg);  // Перемещение указателя в начало файла
@@ -187,6 +233,16 @@ float readClientFile(std::fstream& file, const std::string& fileName) {
   }
   return -1;  // Возвращаем -1, если файл не найден
 }
+
+/**
+ * @brief Проверяет статус файла на сервере и обновляет файл прогресса клиента.
+ *
+ * @param file Открытый файловый поток для файла прогресса.
+ * @param new_socket Сокет для общения с клиентом.
+ * @param client_id Идентификатор клиента.
+ * @param config Конфигурация сервера.
+ * @return Имя файла, полученное от клиента.
+ */
 
 std::string checkFileStatus(std::fstream& file, int new_socket, int client_id,
                             ServerConfig& config) {
@@ -223,6 +279,13 @@ std::string checkFileStatus(std::fstream& file, int new_socket, int client_id,
   return "";
 }
 
+/**
+ * @brief Читает конфигурацию сервера из файла.
+ *
+ * @param filename Путь к файлу конфигурации.
+ * @return Структура с настройками сервера.
+ */
+
 ServerConfig readConfig(const std::string& filename) {
   ServerConfig config;
   std::ifstream file(filename);
@@ -249,6 +312,16 @@ ServerConfig readConfig(const std::string& filename) {
   return config;
 }
 
+/**
+ * @brief Отправляет данные файла клиенту, начиная с указанной позиции.
+ *
+ * @param config Конфигурация сервера.
+ * @param client_id Идентификатор клиента.
+ * @param new_socket Сокет для отправки данных.
+ * @param file_name Имя файла, данные которого отправляются.
+ * @param startPos Позиция в файле, с которой начинается отправка данных.
+ */
+
 void sendFileData(ServerConfig& config, int client_id, int new_socket,
                   const std::string& file_name, size_t startPos) {
   std::string file_path = "server_files/" + file_name;
@@ -273,7 +346,9 @@ void sendFileData(ServerConfig& config, int client_id, int new_socket,
   }
 
   file.close();
-  updateProgressFile(config.directory + "/client_" + std::to_string(client_id) + ".txt", file_name, sent_bytes);
+  updateProgressFile(
+      config.directory + "/client_" + std::to_string(client_id) + ".txt",
+      file_name, sent_bytes);
   const char* endOfData = "END_OF_DATA";
   send(new_socket, endOfData, strlen(endOfData), 0);
 
@@ -281,30 +356,39 @@ void sendFileData(ServerConfig& config, int client_id, int new_socket,
             << std::endl;
 }
 
-void updateProgressFile(const std::string& progressFilePath, const std::string& fileName, size_t sentBytes) {
-    std::map<std::string, size_t> progressData;
-    std::ifstream inFile(progressFilePath);
-    std::string line;
-    
-    // Читаем текущие данные прогресса
-    while (getline(inFile, line)) {
-        std::istringstream iss(line);
-        std::string filename;
-        size_t size;
-        if (getline(iss, filename, ':')) {
-            iss >> size;
-            progressData[filename] = size;
-        }
-    }
-    inFile.close();
+/**
+ * @brief Обновляет файл прогресса, записывая текущее состояние передачи файлов.
+ *
+ * @param progressFilePath Путь к файлу прогресса.
+ * @param fileName Имя файла.
+ * @param sentBytes Количество отправленных байт.
+ */
 
-    // Обновляем данные для текущего файла
-    progressData[fileName] = sentBytes;
+void updateProgressFile(const std::string& progressFilePath,
+                        const std::string& fileName, size_t sentBytes) {
+  std::map<std::string, size_t> progressData;
+  std::ifstream inFile(progressFilePath);
+  std::string line;
 
-    // Перезаписываем файл с обновленной информацией
-    std::ofstream outFile(progressFilePath);
-    for (const auto& entry : progressData) {
-        outFile << entry.first << ": " << entry.second << std::endl;
+  // Читаем текущие данные прогресса
+  while (getline(inFile, line)) {
+    std::istringstream iss(line);
+    std::string filename;
+    size_t size;
+    if (getline(iss, filename, ':')) {
+      iss >> size;
+      progressData[filename] = size;
     }
-    outFile.close();
+  }
+  inFile.close();
+
+  // Обновляем данные для текущего файла
+  progressData[fileName] = sentBytes;
+
+  // Перезаписываем файл с обновленной информацией
+  std::ofstream outFile(progressFilePath);
+  for (const auto& entry : progressData) {
+    outFile << entry.first << ": " << entry.second << std::endl;
+  }
+  outFile.close();
 }
