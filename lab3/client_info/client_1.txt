@@ -1,0 +1,10 @@
+file1::::: 511
+file1:::::: 0
+file2:::: 2
+file2::::: 0
+file3::: 18451
+file3:::: 0
+file4:: 3693
+file4::: 0
+file5: 95481
+file5:: 0

@@ -52,59 +52,110 @@ int main(int argc, char** argv) {
     std::cerr << "Connection Failed" << std::endl;
     return -1;
   }
-
   getAndProcessFileSize(sock, config);
+  for (const auto& file : config.files) {
+    send(sock, file.c_str(), file.length(), 0);
+    std::cout << "File " << file << " sent" << std::endl;
+    memset(buffer, 0, BUFFER_SIZE);
+    valread = read(sock, buffer, BUFFER_SIZE);
 
-  send(sock, config.files[0].c_str(), config.files[0].length(), 0);
-  std::cout << "File " << config.files[0] << " sent" << std::endl;
-
-  // Получаем размер файла от сервера
-  memset(buffer, 0, BUFFER_SIZE);
-  valread = read(sock, buffer, BUFFER_SIZE);
-
-  std::string response(buffer, valread);
-  std::istringstream iss(response);
-  std::string existsStr;
-  double serverFileSize;
-  if (iss >> existsStr >> serverFileSize) {
-    bool exists = existsStr == "true";
-    std::cout << "File exists on server: " << std::boolalpha << exists
-              << ", Server file size: " << serverFileSize << " bytes"
-              << std::endl;
-
-    std::ifstream localFile(config.files[0],
-                            std::ifstream::ate | std::ifstream::binary);
-    if (!localFile && exists) {
-      // Если файл не открыт, но существует на сервере, создаём его
-      std::ofstream newFile(config.files[0], std::ios::binary);
-      newFile.close();
-      localFile.open(config.files[0],
-                     std::ifstream::ate | std::ifstream::binary);
-    }
-    if (localFile) {
-      double localFileSize = localFile.tellg();
-      std::cout << "Local file size: " << localFileSize << " bytes"
+    std::string response(buffer, valread);
+    std::istringstream iss(response);
+    std::string existsStr;
+    double serverFileSize;
+    if (iss >> existsStr >> serverFileSize) {
+      bool exists = existsStr == "true";
+      std::cout << "File exists on server: " << std::boolalpha << exists
+                << ", Server file size: " << serverFileSize << " bytes"
                 << std::endl;
 
-      if (localFileSize == serverFileSize) {
-        std::string readyMessage = "SENDING DATA";
-        send(sock, readyMessage.c_str(), readyMessage.length(), 0);
-        receiveFileData(sock, config.files[0]);
-      } else {
-        std::ostringstream resumeMsg;
-        resumeMsg << "RESUME DOWNLOAD " << config.files[0] << " "
-                  << localFileSize;
-        std::cout << "Requesting file resume from byte: " << localFileSize
-                  << std::endl;
-        send(sock, resumeMsg.str().c_str(), resumeMsg.str().length(), 0);
-        receiveFileData(sock, config.files[0]);
+      std::ifstream localFile(file, std::ifstream::ate | std::ifstream::binary);
+      if (!localFile && exists) {
+        // Если файл не открыт, но существует на сервере, создаём его
+        std::ofstream newFile(file, std::ios::binary);
+        newFile.close();
+        localFile.open(file, std::ifstream::ate | std::ifstream::binary);
       }
-    } else {
-      std::cerr << "Error: Unable to open the file." << std::endl;
+      std::cout << "localFile " << file << std::endl;
+      if (localFile) {
+        double localFileSize = localFile.tellg();
+        std::cout << "Local file size: " << localFileSize << " bytes"
+                  << std::endl;
+
+        if (localFileSize == serverFileSize) {
+          std::string readyMessage = "SENDING DATA";
+          std::cout << readyMessage << std::endl;
+          send(sock, readyMessage.c_str(), readyMessage.length(), 0);
+          receiveFileData(sock, file);
+        } else {
+          std::ostringstream resumeMsg;
+          resumeMsg << "RESUME DOWNLOAD " << file << " " << localFileSize;
+          std::cout << localFileSize << std::endl;
+          std::cout << "Requesting file resume from byte: " << localFileSize
+                    << std::endl;
+          send(sock, resumeMsg.str().c_str(), resumeMsg.str().length(), 0);
+          //       receiveFileData(sock, config.files[0]);
+        }
+        //   } else {
+        //     std::cerr << "Error: Unable to open the file." << std::endl;
+      }
+      // } else {
+      //   std::cerr << "Failed to parse server response: " << response <<
+      //   std::endl;
     }
-  } else {
-    std::cerr << "Failed to parse server response: " << response << std::endl;
   }
+
+  // send(sock, config.files[0].c_str(), config.files[0].length(), 0);
+  // std::cout << "File " << config.files[0] << " sent" << std::endl;
+
+  // Получаем размер файла от сервера
+  // memset(buffer, 0, BUFFER_SIZE);
+  // valread = read(sock, buffer, BUFFER_SIZE);
+
+  // std::string response(buffer, valread);
+  // std::istringstream iss(response);
+  // std::string existsStr;
+  // double serverFileSize;
+  // if (iss >> existsStr >> serverFileSize) {
+  //   bool exists = existsStr == "true";
+  //   std::cout << "File exists on server: " << std::boolalpha << exists
+  //             << ", Server file size: " << serverFileSize << " bytes"
+  //             << std::endl;
+
+  //   std::ifstream localFile(config.files[0],
+  //                           std::ifstream::ate | std::ifstream::binary);
+  //   if (!localFile && exists) {
+  //     // Если файл не открыт, но существует на сервере, создаём его
+  //     std::ofstream newFile(config.files[0], std::ios::binary);
+  //     newFile.close();
+  //     localFile.open(config.files[0],
+  //                    std::ifstream::ate | std::ifstream::binary);
+  //   }
+  //   if (localFile) {
+  //     double localFileSize = localFile.tellg();
+  //     std::cout << "Local file size: " << localFileSize << " bytes"
+  //               << std::endl;
+
+  //     if (localFileSize == serverFileSize) {
+  //       std::string readyMessage = "SENDING DATA";
+  //       send(sock, readyMessage.c_str(), readyMessage.length(), 0);
+  //       receiveFileData(sock, config.files[0]);
+  //     } else {
+  //       std::ostringstream resumeMsg;
+  //       resumeMsg << "RESUME DOWNLOAD " << config.files[0] << " "
+  //                 << localFileSize;
+  //       std::cout << "Requesting file resume from byte: " << localFileSize
+  //                 << std::endl;
+  //       send(sock, resumeMsg.str().c_str(), resumeMsg.str().length(), 0);
+  //       receiveFileData(sock, config.files[0]);
+  //     }
+  //   } else {
+  //     std::cerr << "Error: Unable to open the file." << std::endl;
+  // }
+  // } else {
+  //   std::cerr << "Failed to parse server response: " << response <<
+  //   std::endl;
+  // }
 
   close(sock);
   return 0;
@@ -151,21 +202,29 @@ void getAndProcessFileSize(int sock, ClientConfig& config) {
 }
 
 void receiveFileData(int sock, const std::string& filePath) {
-  // std::cout << "receiveFileData " << filePath << std::endl;
   std::cout << "Starting file download: " << filePath << std::endl;
   std::ofstream file(filePath, std::ios::binary | std::ios::app);
-  char buffer[BUFFER_SIZE];
-  int bytesReceived;
-
   if (!file.is_open()) {
     std::cerr << "Failed to open file: " << filePath << std::endl;
     return;
   }
 
+  char buffer[BUFFER_SIZE];
+  int bytesReceived;
+  bool endOfDataReceived = false;
+
   while ((bytesReceived = recv(sock, buffer, sizeof(buffer), 0)) > 0) {
-    sleep(1);
+    if (strstr(buffer,
+               "END_OF_DATA")) {  // Проверка на наличие маркера завершения
+      endOfDataReceived = true;
+      break;
+    }
     file.write(buffer, bytesReceived);
     std::cout << "Received " << bytesReceived << " bytes" << std::endl;
+  }
+
+  if (endOfDataReceived) {
+    std::cout << "All data received for this file." << std::endl;
   }
 
   file.close();

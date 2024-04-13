@@ -92,27 +92,31 @@ int main(int argc, char** argv) {
       std::cout << "Client id: " << client_id << std::endl;
       checkDirectory(config);
       std::fstream file = checkFileExistance(config, client_id, new_socket);
-      std::string recieved_file =
-          checkFileStatus(file, new_socket, client_id, config);
 
-      if (!recieved_file.empty()) {
-        char readyBuffer[BUFFER_SIZE] = {0};
-        int messageLength = read(new_socket, readyBuffer, BUFFER_SIZE);
-        std::string clientMessage(readyBuffer, messageLength);
-        if (clientMessage == "SENDING DATA") {
+      while (1) {
+        std::string recieved_file =
+            checkFileStatus(file, new_socket, client_id, config);
+        if (!recieved_file.empty()) {
+          char readyBuffer[BUFFER_SIZE] = {0};
+          int messageLength = read(new_socket, readyBuffer, BUFFER_SIZE);
           std::string clientMessage(readyBuffer, messageLength);
-          std::cout << "Client message: " << clientMessage << std::endl;
-          sendFileData(config, client_id, new_socket, recieved_file, 0);
-        } else if (clientMessage.substr(0, 15) == "RESUME DOWNLOAD") {
-          std::istringstream ss(clientMessage.substr(
-              16));  // Извлекаем оставшуюся часть сообщения
-          std::string filename;
-          size_t position;
-          ss >> filename >> position;
-          std::cout << "Resuming file transfer from: " << position
-                    << " for file: " << filename << std::endl;
-          sendFileData(config, client_id, new_socket, filename,
-                       position);  // Функция отправки данных с учетом позиции
+          std::cout << clientMessage << std::endl;
+          if (clientMessage == "SENDING DATA") {
+            std::string clientMessage(readyBuffer, messageLength);
+            std::cout << "Client message: " << clientMessage << std::endl;
+            sendFileData(config, client_id, new_socket, recieved_file, 0);
+          } else if (clientMessage.substr(0, 15) == "RESUME DOWNLOAD") {
+            std::istringstream ss(clientMessage.substr(
+                16));  // Извлекаем оставшуюся часть сообщения
+            std::string filename;
+            size_t position;
+            ss >> filename >> position;
+            std::cout << "Resuming file transfer from: " << position
+                      << " for file: " << filename << std::endl;
+            //     sendFileData(config, client_id, new_socket, filename,
+            //                  position);  // Функция отправки данных с учетом
+            //                  позиции
+          }
         }
       }
       close(new_socket);
@@ -302,4 +306,9 @@ void sendFileData(ServerConfig& config, int client_id, int new_socket,
   }
 
   progress_file.close();
+  const char* endOfData = "END_OF_DATA";
+  send(new_socket, endOfData, strlen(endOfData), 0);
+
+  std::cout << "Total bytes sent for " << file_name << ": " << sent_bytes
+            << std::endl;
 }
