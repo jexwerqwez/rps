@@ -104,59 +104,6 @@ int main(int argc, char** argv) {
       //   std::endl;
     }
   }
-
-  // send(sock, config.files[0].c_str(), config.files[0].length(), 0);
-  // std::cout << "File " << config.files[0] << " sent" << std::endl;
-
-  // Получаем размер файла от сервера
-  // memset(buffer, 0, BUFFER_SIZE);
-  // valread = read(sock, buffer, BUFFER_SIZE);
-
-  // std::string response(buffer, valread);
-  // std::istringstream iss(response);
-  // std::string existsStr;
-  // double serverFileSize;
-  // if (iss >> existsStr >> serverFileSize) {
-  //   bool exists = existsStr == "true";
-  //   std::cout << "File exists on server: " << std::boolalpha << exists
-  //             << ", Server file size: " << serverFileSize << " bytes"
-  //             << std::endl;
-
-  //   std::ifstream localFile(config.files[0],
-  //                           std::ifstream::ate | std::ifstream::binary);
-  //   if (!localFile && exists) {
-  //     // Если файл не открыт, но существует на сервере, создаём его
-  //     std::ofstream newFile(config.files[0], std::ios::binary);
-  //     newFile.close();
-  //     localFile.open(config.files[0],
-  //                    std::ifstream::ate | std::ifstream::binary);
-  //   }
-  //   if (localFile) {
-  //     double localFileSize = localFile.tellg();
-  //     std::cout << "Local file size: " << localFileSize << " bytes"
-  //               << std::endl;
-
-  //     if (localFileSize == serverFileSize) {
-  //       std::string readyMessage = "SENDING DATA";
-  //       send(sock, readyMessage.c_str(), readyMessage.length(), 0);
-  //       receiveFileData(sock, config.files[0]);
-  //     } else {
-  //       std::ostringstream resumeMsg;
-  //       resumeMsg << "RESUME DOWNLOAD " << config.files[0] << " "
-  //                 << localFileSize;
-  //       std::cout << "Requesting file resume from byte: " << localFileSize
-  //                 << std::endl;
-  //       send(sock, resumeMsg.str().c_str(), resumeMsg.str().length(), 0);
-  //       receiveFileData(sock, config.files[0]);
-  //     }
-  //   } else {
-  //     std::cerr << "Error: Unable to open the file." << std::endl;
-  // }
-  // } else {
-  //   std::cerr << "Failed to parse server response: " << response <<
-  //   std::endl;
-  // }
-
   close(sock);
   return 0;
 }

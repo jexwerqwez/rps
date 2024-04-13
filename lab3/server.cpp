@@ -31,6 +31,8 @@ std::string checkFileStatus(std::fstream& progress_file, int new_socket,
 float readClientFile(std::fstream& file, const std::string& fileName);
 void sendFileData(ServerConfig& config, int client_id, int new_socket,
                   const std::string& file_name, size_t startPos);
+void updateProgressFile(const std::string& progressFilePath, const std::string& fileName, size_t sentBytes);
+
 
 int main(int argc, char** argv) {
   int server_fd, new_socket, valread;
@@ -271,44 +273,38 @@ void sendFileData(ServerConfig& config, int client_id, int new_socket,
   }
 
   file.close();
-
-  // Обновление прогресса в файле клиента
-  std::string progress_file_path =
-      config.directory + "/client_" + std::to_string(client_id) + ".txt";
-
-  std::fstream progress_file(progress_file_path, std::fstream::in |
-                                                     std::fstream::out |
-                                                     std::fstream::app);
-  if (!progress_file.is_open()) {
-    std::cerr << "Failed to open progress file: " << progress_file_path
-              << std::endl;
-    return;
-  }
-
-  std::map<std::string, size_t> file_sizes;
-  std::string line;
-  while (std::getline(progress_file, line)) {
-    std::istringstream iss(line);
-    std::string filename;
-    size_t size;
-    if (iss >> filename >> size) {
-      file_sizes[filename] = size;
-    }
-  }
-
-  file_sizes[file_name] = sent_bytes;
-  progress_file.close();
-  progress_file.open(
-      progress_file_path,
-      std::fstream::out | std::fstream::trunc);  // Очистка файла для перезаписи
-  for (const auto& pair : file_sizes) {
-    progress_file << pair.first << ": " << pair.second << std::endl;
-  }
-
-  progress_file.close();
+  updateProgressFile(config.directory + "/client_" + std::to_string(client_id) + ".txt", file_name, sent_bytes);
   const char* endOfData = "END_OF_DATA";
   send(new_socket, endOfData, strlen(endOfData), 0);
 
   std::cout << "Total bytes sent for " << file_name << ": " << sent_bytes
             << std::endl;
+}
+
+void updateProgressFile(const std::string& progressFilePath, const std::string& fileName, size_t sentBytes) {
+    std::map<std::string, size_t> progressData;
+    std::ifstream inFile(progressFilePath);
+    std::string line;
+    
+    // Читаем текущие данные прогресса
+    while (getline(inFile, line)) {
+        std::istringstream iss(line);
+        std::string filename;
+        size_t size;
+        if (getline(iss, filename, ':')) {
+            iss >> size;
+            progressData[filename] = size;
+        }
+    }
+    inFile.close();
+
+    // Обновляем данные для текущего файла
+    progressData[fileName] = sentBytes;
+
+    // Перезаписываем файл с обновленной информацией
+    std::ofstream outFile(progressFilePath);
+    for (const auto& entry : progressData) {
+        outFile << entry.first << ": " << entry.second << std::endl;
+    }
+    outFile.close();
 }
